@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>统计决策智能体</title>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+<style>
+:root{
+  --primary:#4F46E5;--primary-light:#6366F1;--primary-dark:#4338CA;
+  --bg:#F9FAFB;--card:#FFFFFF;--text:#111827;--text-2:#6B7280;--text-3:#9CA3AF;
+  --border:#E5E7EB;--success:#10B981;--warning:#F59E0B;--danger:#EF4444;
+  --shadow:0 4px 6px -1px rgba(0,0,0,.1);--radius:16px;
+}
+[data-theme="dark"]{
+  --bg:#111827;--card:#1F2937;--text:#F9FAFB;--text-2:#D1D5DB;--text-3:#9CA3AF;
+  --border:#374151;--shadow:0 4px 6px -1px rgba(0,0,0,.4);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;background:var(--bg);color:var(--text);line-height:1.6;transition:background .3s,color .3s}
+nav{position:sticky;top:0;z-index:100;height:64px;background:linear-gradient(135deg,var(--primary) 0%,var(--primary-dark) 100%);display:flex;align-items:center;padding:0 24px;box-shadow:0 2px 12px rgba(0,0,0,.15)}
+nav .logo{font-size:18px;font-weight:700;color:#fff;margin-right:32px;white-space:nowrap}
+nav .tabs{display:flex;gap:8px;flex:1}
+nav .tab{padding:8px 18px;border-radius:10px;border:none;background:rgba(255,255,255,.15);color:#fff;font-size:14px;cursor:pointer;transition:.2s;font-family:inherit}
+nav .tab:hover{background:rgba(255,255,255,.25);transform:scale(1.03)}
+nav .tab.active{background:#fff;color:var(--primary);font-weight:600}
+nav .theme-btn{width:40px;height:40px;border-radius:50%;border:none;background:rgba(255,255,255,.15);color:#fff;font-size:18px;cursor:pointer;transition:.2s}
+nav .theme-btn:hover{background:rgba(255,255,255,.3)}
+main{max-width:1400px;margin:0 auto;padding:24px}
+.module{display:none;animation:fadeIn .35s ease}
+.module.active{display:block}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:24px;margin-bottom:24px;transition:background .3s}
+.two-col{display:grid;grid-template-columns:380px 1fr;gap:24px;margin-bottom:24px}
+@media(max-width:900px){.two-col{grid-template-columns:1fr}}
+h2{font-size:22px;margin-bottom:4px;color:var(--primary)}
+h3{font-size:16px;margin-bottom:14px;color:var(--text);font-weight:600}
+.sub{color:var(--text-3);font-size:13px;margin-bottom:18px}
+label.field{display:block;margin-bottom:14px}
+label.field span{display:block;font-size:13px;color:var(--text-2);margin-bottom:6px;font-weight:500}
+label.field .unit{color:var(--text-3);font-weight:400;font-size:12px}
+input[type="number"],input[type="text"],select{width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:10px;font-size:14px;font-family:inherit;background:var(--card);color:var(--text);transition:.2s;outline:none}
+input:focus,select:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(79,70,229,.12)}
+.btn{padding:11px 20px;border-radius:10px;border:none;font-size:14px;font-weight:600;cursor:pointer;transition:.2s;font-family:inherit}
+.btn-primary{background:var(--primary);color:#fff}
+.btn-primary:hover{background:var(--primary-dark);transform:translateY(-1px)}
+.btn-ghost{background:transparent;color:var(--text-2);border:1.5px solid var(--border)}
+.btn-ghost:hover{border-color:var(--primary);color:var(--primary)}
+.btn-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
+.results-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:18px}
+.result-card{background:linear-gradient(135deg,rgba(79,70,229,.06),rgba(99,102,241,.02));border:1px solid var(--border);border-radius:12px;padding:14px 16px;animation:slideIn .4s ease both}
+@keyframes slideIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+.result-card .lbl{font-size:12px;color:var(--text-3);margin-bottom:4px}
+.result-card .val{font-size:20px;font-weight:700;font-family:monospace;color:var(--primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.result-card .unit{font-size:12px;color:var(--text-3);margin-left:2px;font-weight:400}
+.chart-row{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
+.chart-row.full{grid-template-columns:1fr}
+@media(max-width:900px){.chart-row{grid-template-columns:1fr}}
+.chart{width:100%;height:320px;border-radius:12px;background:var(--card)}
+.insight-block{display:flex;gap:14px;padding:16px 0;border-bottom:1px dashed var(--border)}
+.insight-block:last-child{border-bottom:none}
+.insight-bar{width:4px;background:var(--primary);border-radius:2px;flex-shrink:0}
+.insight-content{flex:1}
+.insight-content h4{font-size:15px;color:var(--primary);margin-bottom:8px;font-weight:700}
+.insight-content p{font-size:14px;color:var(--text-2);margin-bottom:8px;line-height:1.7}
+.insight-content ul,.insight-content ol{padding-left:22px;font-size:14px;color:var(--text-2)}
+.insight-content li{margin-bottom:6px;line-height:1.65}
+.insight-content b{color:var(--text);font-weight:600}
+.insight-content code{background:rgba(79,70,229,.08);padding:2px 7px;border-radius:5px;font-family:monospace;font-size:13px;color:var(--primary-dark)}
+.insight-content table{width:100%;border-collapse:collapse;margin:10px 0;font-size:13px}
+.insight-content th,.insight-content td{padding:8px 10px;border:1px solid var(--border);text-align:center}
+.insight-content th{background:rgba(79,70,229,.06);font-weight:600;color:var(--text)}
+.insight-content tr.hl td{background:rgba(16,185,129,.1);font-weight:600;color:var(--success)}
+.insight-content tr.cur td{background:rgba(79,70,229,.15);font-weight:700;color:var(--primary)}
+details.assump{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:0;overflow:hidden;margin-bottom:24px}
+details.assump summary{padding:18px 24px;cursor:pointer;font-size:15px;font-weight:600;color:var(--warning);list-style:none;user-select:none}
+details.assump summary::-webkit-details-marker{display:none}
+details.assump summary::before{content:"⚠️ "}
+details.assump summary::after{content:" ▸";transition:.2s;display:inline-block;margin-left:6px}
+details.assump[open] summary::after{transform:rotate(90deg)}
+details.assump .body{padding:0 24px 24px;font-size:14px;color:var(--text-2);line-height:1.7}
+details.assump .body ul{padding-left:22px}
+.dyn-table{width:100%;border-collapse:collapse;font-size:14px;margin-top:8px}
+.dyn-table th,.dyn-table td{padding:6px 8px;text-align:center;border-bottom:1px solid var(--border)}
+.dyn-table th{font-size:12px;color:var(--text-3);font-weight:500}
+.dyn-table input{width:100%;padding:6px 8px;font-size:13px;text-align:center}
+.dyn-table .del{background:transparent;border:none;color:var(--danger);cursor:pointer;font-size:18px;line-height:1}
+.lp-con-row,.lp-obj-row{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:8px;font-size:13px}
+.lp-con-row input[type="number"],.lp-obj-row input[type="number"]{width:60px;padding:6px 8px;font-size:13px}
+.lp-con-row select{width:56px;padding:6px 4px;font-size:13px}
+.lp-con-row .del{background:transparent;border:none;color:var(--danger);cursor:pointer;font-size:18px}
+#toast{position:fixed;top:80px;left:50%;transform:translateX(-50%) translateY(-20px);background:#1F2937;color:#fff;padding:10px 20px;border-radius:10px;font-size:14px;opacity:0;pointer-events:none;transition:.3s;z-index:999;box-shadow:0 8px 24px rgba(0,0,0,.2)}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+</style>
+</head>
+<body data-theme="light">
+
+<nav>
+  <div class="logo">📊 统计决策智能体</div>
+  <div class="tabs">
+    <button class="tab active" data-tab="eoq">经济订货批量 EOQ</button>
+    <button class="tab" data-tab="marginal">边际分析决策</button>
+    <button class="tab" data-tab="lp">线性规划决策</button>
+  </div>
+  <button class="theme-btn" id="themeBtn" title="切换主题">🌙</button>
+</nav>
+
+<main>
+<!-- EOQ 模块 -->
+<section class="module active" id="mod-eoq">
+  <div class="two-col">
+    <div class="card">
+      <h2>经济订货批量</h2>
+      <p class="sub">EOQ · Economic Order Quantity</p>
+      <label class="field"><span>年需求量 D <span class="unit">（箱）</span></span><input type="number" id="eoq-D" value="1250" step="any"></label>
+      <label class="field"><span>每次订货成本 C <span class="unit">（元）</span></span><input type="number" id="eoq-C" value="50" step="any"></label>
+      <label class="field"><span>商品单价 p <span class="unit">（元/箱）</span></span><input type="number" id="eoq-p" value="800" step="any"></label>
+      <label class="field"><span>年保管费率 k <span class="unit">（%）</span></span><input type="number" id="eoq-k" value="30" step="any"></label>
+      <div class="btn-row">
+        <button class="btn btn-primary" id="eoq-calc">计算</button>
+        <button class="btn btn-ghost" id="eoq-reset">重置示例</button>
+      </div>
+    </div>
+    <div class="card">
+      <h3>计算结果</h3>
+      <div class="results-grid" id="eoq-results"></div>
+      <div class="chart-row">
+        <div class="chart" id="eoq-chart1"></div>
+        <div class="chart" id="eoq-chart2"></div>
+      </div>
+      <div class="chart-row full"><div class="chart" id="eoq-chart3" style="height:280px"></div></div>
+    </div>
+  </div>
+  <div class="card"><h3>📘 模型解释与决策建议</h3><div id="eoq-insight"></div></div>
+  <details class="assump">
+    <summary>模型假设与适用边界</summary>
+    <div class="body"><ul>
+      <li><b>需求恒定且已知</b>：实际中若呈季节性波动，应改用 (s,S) 策略。</li>
+      <li><b>瞬时补货</b>：若提前期长且不稳定，需增加安全库存。</li>
+      <li><b>不允许缺货</b>：若允许缺货，应改用 EOQ with shortage 模型。</li>
+      <li><b>单价与订货成本固定</b>：若有数量折扣，需在折扣分界点比较总成本。</li>
+    </ul></div>
+  </details>
+</section>
+
+<!-- 边际分析模块 -->
+<section class="module" id="mod-marginal">
+  <div class="two-col">
+    <div class="card">
+      <h2>边际分析决策</h2>
+      <p class="sub">Marginal Analysis · 单周期报童模型</p>
+      <label class="field"><span>边际利润 MP <span class="unit">（元/箱）</span></span><input type="number" id="marg-MP" value="20" step="any"></label>
+      <label class="field"><span>边际损失 ML <span class="unit">（元/箱）</span></span><input type="number" id="marg-ML" value="10" step="any"></label>
+      <h3 style="margin-top:20px">销售量 - 概率表</h3>
+      <table class="dyn-table" id="marg-table">
+        <thead><tr><th>日销售量（箱）</th><th>概率</th><th></th></tr></thead>
+        <tbody id="marg-tbody"></tbody>
+      </table>
+      <div class="btn-row"><button class="btn btn-ghost" id="marg-add" style="padding:8px 14px;font-size:13px">+ 添加行</button></div>
+      <div class="btn-row">
+        <button class="btn btn-primary" id="marg-calc">计算</button>
+        <button class="btn btn-ghost" id="marg-reset">重置示例</button>
+      </div>
+    </div>
+    <div class="card">
+      <h3>计算结果</h3>
+      <div class="results-grid" id="marg-results"></div>
+      <div id="marg-table-result" style="margin-bottom:18px"></div>
+      <div class="chart-row">
+        <div class="chart" id="marg-chart1"></div>
+        <div class="chart" id="marg-chart2"></div>
+      </div>
+    </div>
+  </div>
+  <div class="card"><h3>📘 模型解释与决策建议</h3><div id="marg-insight"></div></div>
+  <details class="assump">
+    <summary>模型假设与适用边界</summary>
+    <div class="body"><ul>
+      <li><b>单周期</b>：期末未售出部分全部损失或按残值处理。</li>
+      <li><b>需求分布已知</b>：概率来自历史数据或主观估计。</li>
+      <li><b>不考虑二次补货</b>：若允许中途补货，需改用多周期模型。</li>
+    </ul></div>
+  </details>
+</section>
+
+<!-- 线性规划模块 -->
+<section class="module" id="mod-lp">
+  <div class="two-col">
+    <div class="card">
+      <h2>线性规划决策</h2>
+      <p class="sub">Linear Programming</p>
+      <label class="field"><span>决策变量数</span>
+        <select id="lp-numvars"><option value="2">2 个</option><option value="3" selected>3 个</option></select></label>
+      <label class="field"><span>目标类型</span>
+        <select id="lp-objtype"><option value="max" selected>最大化</option><option value="min">最小化</option></select></label>
+      <h3 style="margin-top:18px">目标函数</h3>
+      <div id="lp-obj-row" class="lp-obj-row"></div>
+      <h3 style="margin-top:18px">约束条件</h3>
+      <div id="lp-cons-container"></div>
+      <div class="btn-row"><button class="btn btn-ghost" id="lp-add" style="padding:8px 14px;font-size:13px">+ 添加约束</button></div>
+      <div class="btn-row">
+        <button class="btn btn-primary" id="lp-calc">求解</button>
+        <button class="btn btn-ghost" id="lp-reset">重置示例</button>
+      </div>
+    </div>
+    <div class="card">
+      <h3>求解结果</h3>
+      <div class="results-grid" id="lp-results"></div>
+      <div id="lp-constraints-result" style="margin-bottom:18px"></div>
+      <div class="chart-row">
+        <div class="chart" id="lp-chart1"></div>
+        <div class="chart" id="lp-chart2"></div>
+      </div>
+      <div class="chart-row full"><div class="chart" id="lp-chart3" style="height:280px"></div></div>
+    </div>
+  </div>
+  <div class="card"><h3>📘 模型解释与决策建议</h3><div id="lp-insight"></div></div>
+  <details class="assump">
+    <summary>模型假设与适用边界</summary>
+    <div class="body"><ul>
+      <li><b>目标与约束均为线性</b>：非线性场景需用非线性规划。</li>
+      <li><b>可分割（连续变量）</b>：若要求整数解，应改用整数规划。</li>
+      <li><b>参数确定已知</b>：若系数存在不确定性，需用鲁棒优化。</li>
+    </ul></div>
+  </details>
+</section>
+</main>
+<div id="toast"></div>
+
+<script>
+const $ = id => document.getElementById(id);
+const fmt = (n, d=2) => isFinite(n) ? parseFloat(n.toFixed(d)).toString() : '—';
+const num = v => isFinite(parseFloat(v)) ? parseFloat(v) : 0;
+const SUB = ['₁','₂','₃','₄','₅'];
+let toastTimer;
+function toast(msg){ const t=$('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove('show'),2200); }
+const isDark = () => document.body.dataset.theme === 'dark';
+
+// 主题切换
+(function initTheme(){
+  const saved = localStorage.getItem('sd-theme') || 'light';
+  document.body.dataset.theme = saved;
+  $('themeBtn').textContent = saved === 'dark' ? '☀️' : '🌙';
+})();
+$('themeBtn').onclick = () => {
+  const cur = document.body.dataset.theme;
+  const next = cur === 'dark' ? 'light' : 'dark';
+  document.body.dataset.theme = next;
+  localStorage.setItem('sd-theme', next);
+  $('themeBtn').textContent = next === 'dark' ? '☀️' : '🌙';
+  Object.values(EOQ.charts).forEach(c => c && c.dispose());
+  Object.values(Marginal.charts).forEach(c => c && c.dispose());
+  Object.values(LP.charts).forEach(c => c && c.dispose());
+  EOQ.charts = {}; Marginal.charts = {}; LP.charts = {};
+  if (EOQ.lastResult) EOQ.render(EOQ.lastResult);
+  if (Marginal.lastResult) Marginal.render(Marginal.lastResult);
+  if (LP.lastResult) LP.render(LP.lastResult);
+};
+
+// 标签切换
+document.querySelectorAll('.tab').forEach(btn => {
+  btn.onclick = () => {
+    document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.module').forEach(m => m.classList.remove('active'));
+    btn.classList.add('active');
+    $('mod-' + btn.dataset.tab).classList.add('active');
+    setTimeout(() => {
+      const mod = btn.dataset.tab;
+      const charts = mod === 'eoq' ? EOQ.charts : mod === 'marginal' ? Marginal.charts : LP.charts;
+      Object.values(charts).forEach(c => c && c.resize());
+    }, 50);
+  };
+});
+
+function block(title, html) {
+  return `<div class="insight-block"><div class="insight-bar"></div><div class="insight-content"><h4>${title}</h4>${html}</div></div>`;
+}
+
+/* ================= EOQ 模块 ================= */
+const EOQ = {
+  charts: {}, lastResult: null,
+  readInputs(){ return { D:num($('eoq-D').value), C:num($('eoq-C').value), p:num($('eoq-p').value), k:num($('eoq-k').value)/100 }; },
+  calculate(){
+    const {D,C,p,k} = this.readInputs();
+    if (D<=0||C<=0||p<=0||k<=0) { toast('参数必须为正数'); return null; }
+    const Qstar = Math.sqrt(2*D*C/(p*k));
+    const N = D/Qstar, orderCost = (D/Qstar)*C, holdCost = (Qstar/2)*p*k, buyCost = p*D;
+    const TC = orderCost + holdCost + buyCost, cycle = 365/N;
+    const TCBad = C + (D/2)*p*k + buyCost;
+    const tcAt = q => (D/q)*C + (q/2)*p*k + buyCost;
+    const flatPct = Math.max((tcAt(0.8*Qstar)-TC)/TC, (tcAt(1.2*Qstar)-TC)/TC) * 100;
+    return { D,C,p,k,Qstar,N,orderCost,holdCost,buyCost,TC,cycle,TCBad,diff:TCBad-TC,diffPct:(TCBad-TC)/TC*100,flatPct };
+  },
+  renderCharts(r){
+    const dark = isDark(), axisColor = dark?'#9CA3AF':'#6B7280', splitColor = dark?'#374151':'#E5E7EB';
+    const baseGrid = { left:55, right:30, top:50, bottom:45 }, textStyle = { color:axisColor, fontSize:12 };
+    
+    // 图1
+    if (this.charts.c1) this.charts.c1.dispose();
+    this.charts.c1 = echarts.init($('eoq-chart1'), dark?'dark':null);
+    const qMax = Math.max(3*r.Qstar, r.Qstar+10), xs=[], oc=[], hc=[], tc=[];
+    for(let i=1;i<=60;i++){ const q=qMax*i/60; xs.push(+q.toFixed(2)); oc.push(+(r.D/q*r.C).toFixed(2)); hc.push(+(q/2*r.p*r.k).toFixed(2)); tc.push(+(oc[oc.length-1]+hc[hc.length-1]).toFixed(2)); }
+    this.charts.c1.setOption({
+      backgroundColor:'transparent', title:{text:'总成本曲线',left:'center',top:6,textStyle:{fontSize:13,color:axisColor,fontWeight:600}},
+      tooltip:{trigger:'axis'}, legend:{top:28,textStyle:{color:axisColor,fontSize:11},itemWidth:12,itemHeight:8}, grid:{...baseGrid,top:60},
+      xAxis:{type:'value',name:'Q（箱）',nameLocation:'middle',nameGap:28,axisLine:{lineStyle:{color:splitColor}},axisLabel:textStyle,splitLine:{show:false}},
+      yAxis:{type:'value',name:'成本（元）',axisLine:{show:false},axisLabel:textStyle,splitLine:{lineStyle:{color:splitColor,type:'dashed'}}},
+      series:[
+        {name:'订货成本',type:'line',data:xs.map((q,i)=>[q,oc[i]]),showSymbol:false,color:'#3B82F6',smooth:true},
+        {name:'存储成本',type:'line',data:xs.map((q,i)=>[q,hc[i]]),showSymbol:false,color:'#F59E0B',smooth:true},
+        {name:'变动总成本',type:'line',data:xs.map((q,i)=>[q,tc[i]]),showSymbol:false,color:'#4F46E5',lineStyle:{width:2.5},smooth:true,
+         markLine:{symbol:'none',label:{formatter:`Q*=${fmt(r.Qstar)}`,position:'insideEndTop',color:'#EF4444',fontWeight:600,fontSize:11},lineStyle:{color:'#EF4444',type:'dashed',width:1.5},data:[{xAxis:+r.Qstar.toFixed(2)}]},
+         markPoint:{symbol:'circle',symbolSize:8,data:[{coord:[+r.Qstar.toFixed(2),+tc[Math.round(60*r.Qstar/qMax)-1]]}]}
+        }
+      ]
+    });
+
+    // 图2
+    if (this.charts.c2) this.charts.c2.dispose();
+    this.charts.c2 = echarts.init($('eoq-chart2'), dark?'dark':null);
+    const cycles = Math.max(3, Math.min(6, Math.floor(r.N/3))), pts=[]; let t=0;
+    for(let i=0;i<cycles;i++){ pts.push([t,r.Qstar]); t+=r.cycle; pts.push([t,0]); }
+    this.charts.c2.setOption({
+      backgroundColor:'transparent', title:{text:'库存量-时间锯齿图',left:'center',top:6,textStyle:{fontSize:13,color:axisColor,fontWeight:600}},
+      tooltip:{trigger:'axis'}, grid:{...baseGrid,top:45},
+      xAxis:{type:'value',name:'时间（天）',nameLocation:'middle',nameGap:28,axisLine:{lineStyle:{color:splitColor}},axisLabel:textStyle},
+      yAxis:{type:'value',name:'库存（箱）',axisLine:{show:false},axisLabel:textStyle,splitLine:{lineStyle:{color:splitColor,type:'dashed'}}},
+      series:[{type:'line',data:pts,showSymbol:false,color:'#4F46E5',lineStyle:{width:2.5},step:'end',areaStyle:{color:'rgba(79,70,229,.12)'},
+        markLine:{symbol:'none',label:{formatter:`平均库存 = ${fmt(r.Qstar/2)}`,position:'insideEndTop',color:'#10B981',fontSize:11},lineStyle:{color:'#10B981',type:'dashed'},data:[{yAxis:+(r.Qstar/2).toFixed(2)}]}}]
+    });
+
+    // 图3
+    if (this.charts.c3) this.charts.c3.dispose();
+    this.charts.c3 = echarts.init($('eoq-chart3'), dark?'dark':null);
+    const ds=[], qs=[];
+    for(let i=1;i<=50;i++){ const d=r.D*(0.5+1.5*i/50); ds.push(+d.toFixed(1)); qs.push(+Math.sqrt(2*d*r.C/(r.p*r.k)).toFixed(3)); }
+    this.charts.c3.setOption({
+      backgroundColor:'transparent', title:{text:'Q* 对 D 的敏感性',left:'center',top:6,textStyle:{fontSize:13,color:axisColor,fontWeight:600}},
+      tooltip:{trigger:'axis'}, grid:{...baseGrid,top:45},
+      xAxis:{type:'value',name:'年需求量 D',nameLocation:'middle',nameGap:28,axisLine:{lineStyle:{color:splitColor}},axisLabel:textStyle},
+      yAxis:{type:'value',name:'Q*',axisLine:{show:false},axisLabel:textStyle,splitLine:{lineStyle:{color:splitColor,type:'dashed'}}},
+      series:[{type:'line',data:ds.map((d,i)=>[d,qs[i]]),showSymbol:false,color:'#4F46E5',smooth:true,lineStyle:{width:2.5},areaStyle:{color:'rgba(79,70,229,.08)'},
+        markPoint:{symbol:'circle',symbolSize:10,label:{formatter:`当前 Q*=${fmt(r.Qstar)}`,position:'top',color:'#EF4444',fontSize:11,fontWeight:600},data:[{coord:[+r.D.toFixed(1),+r.Qstar.toFixed(2)]}]}}]
+    });
+  },
+  buildInsight(r){
+    const f=fmt, sens=(k,m)=>{const o={D:r.D,C:r.C,p:r.p,k:r.k};o[k]*=m;return Math.sqrt(2*o.D*o.C/(o.p*o.k))};
+    const rows = [['D','需求量'],['C','订货成本'],['p','单价'],['k','保管费率']].map(([key,name])=>{
+      const up=sens(key,1.1), dn=sens(key,0.9), pct=(up-r.Qstar)/r.Qstar*100;
+      return `<tr><td>${name} ${key}</td><td>${f(up)}</td><td>${pct>0?'+':''}${f(pct,1)}%</td><td>${f(dn)}</td></tr>`;
+    }).join('');
+    return `
+${block('① 公式与原理', `<p>EOQ 模型将年总成本拆为订货成本 <code>(D/Q)·C</code> 与存储成本 <code>(Q/2)·p·k</code>，平衡点 <code>Q* = √(2DC/(pk))</code>。代入本题得 <b>Q* = ${f(r.Qstar)} 箱</b>。</p>`)}
+${block('② 本次结果的解读', `<ul>
+  <li>在 Q* = <b>${f(r.Qstar)} 箱</b>时，订货成本 (${f(r.orderCost)}) ≈ 存储成本 (${f(r.holdCost)})，总成本最低为 <b>${f(r.TC)} 元</b>。</li>
+  <li>若改为每年只订一次（Q=${r.D}），总成本升至 ${f(r.TCBad)} 元，多支出 <b>${f(r.diff)} 元 (+${f(r.diffPct,1)}%)</b>。</li>
+  <li>订货周期约 <b>${f(r.cycle,1)} 天</b>。</li>
+</ul>`)}
+${block('③ 敏感性洞察', `<table><thead><tr><th>参数 (+10%)</th><th>Q*</th><th>变化率</th><th>参数 (-10%) Q*</th></tr></thead><tbody>${rows}</tbody></table>
+<p><b>结论：</b>Q* 对参数均为平方根关系（弹性 ±0.5），单一参数变动 10% 只让 Q* 变动约 5%。在 Q* 附近 ±20% 调整批量，成本仅增加 <b>${f(r.flatPct,3)}%</b>。</p>`)}
+${block('④ 行动建议', `<ol>
+  <li><b>建议每次订货 ${Math.round(r.Qstar)} 箱</b>，每年订货约 ${f(r.N,1)} 次，周期约 ${f(r.cycle,1)} 天。</li>
+  <li>若供应商整箱起订，批量可在 <b>${Math.round(0.8*r.Qstar)} ~ ${Math.round(1.2*r.Qstar)} 箱</b>灵活调整，成本影响极小。</li>
+  <li>若需求波动大或有数量折扣，需改用 (s,S) 策略或折扣模型。</li>
+</ol>`)}`;
+  },
+  render(r){
+    this.lastResult=r;
+    const cards=[['经济订货批量 Q*',fmt(r.Qstar),'箱'],['年订货次数',fmt(r.N,1),'次'],['年订货成本',fmt(r.orderCost,0),'元'],['年存储成本',fmt(r.holdCost,0),'元'],['年总成本',fmt(r.TC,0),'元']];
+    $('eoq-results').innerHTML = cards.map(([l,v,u],i)=>`<div class="result-card" style="animation-delay:${i*0.05}s"><div class="lbl">${l}</div><div class="val">${v}<span class="unit">${u}</span></div></div>`).join('');
+    $('eoq-insight').innerHTML = this.buildInsight(r);
+    setTimeout(()=>this.renderCharts(r),30);
+  },
+  init(){
+    $('eoq-calc').onclick=()=>{const r=this.calculate();if(r)this.render(r)};
+    $('eoq-reset').onclick=()=>{$('eoq-D').value=1250;$('eoq-C').value=50;$('eoq-p').value=800;$('eoq-k').value=30;$('eoq-calc').click()};
+    $('eoq-calc').click();
+  }
+};
+
+/* ================= 边际分析模块 ================= */
+const Marginal = {
+  charts:{}, lastResult:null, defaultData:[[100,0.2],[110,0.4],[120,0.3],[130,0.1]],
+  renderTable(){
+    const tbody=$('marg-tbody'); tbody.innerHTML='';
+    this.defaultData.forEach((row)=>{
+      tbody.innerHTML+=`<tr><td><input type="number" class="m-sales" value="${row[0]}" step="any"></td><td><input type="number" class="m-prob" value="${row[1]}" step="any" min="0" max="1"></td><td><button class="del">×</button></td></tr>`;
+    });
+    tbody.querySelectorAll('.del').forEach(b=>b.onclick=()=>b.closest('tr').remove());
+  },
+  readInputs(){
+    const MP=num($('marg-MP').value), ML=num($('marg-ML').value), rows=[];
+    document.querySelectorAll('#marg-tbody tr').forEach(tr=>{const s=num(tr.querySelector('.m-sales').value),p=num(tr.querySelector('.m-prob').value);if(s>0)rows.push([s,p])});
+    return {MP,ML,rows};
+  },
+  calculate(){
+    const {MP,ML,rows}=this.readInputs();
+    if(MP<=0||ML<0||rows.length===0){toast('参数无效');return null}
+    const probSum=rows.reduce((s,r)=>s+r[1],0);
+    if(Math.abs(probSum-1)>0.01) toast(`注意：概率之和为 ${fmt(probSum,2)}`);
+    const data=rows.slice().sort((a,b)=>a[0]-b[0]), n=data.length, p0=ML/(MP+ML);
+    const cum=new Array(n); let c=0;
+    for(let i=n-1;i>=0;i--){c+=data[i][1];cum[i]=c}
+    let bestIdx=-1; for(let i=0;i<n;i++) if(cum[i]>=p0-1e-9) bestIdx=i;
+    const expProfit=q=>{let E=0;for(const[s,p]of data){E+=p*(Math.min(s,q)*MP-Math.max(q-s,0)*ML)}return E};
+    const candidates=data.map(([s])=>({q:s,E:expProfit(s)}));
+    const best=bestIdx>=0?candidates[bestIdx]:candidates[0];
+    return {MP,ML,p0,data,cum,bestIdx,candidates,best,probSum};
+  },
+  renderCharts(r){
+    const dark=isDark(), axisColor=dark?'#9CA3AF':'#6B7280', splitColor=dark?'#374151':'#E5E7EB';
+    const baseGrid={left:55,right:30,top:50,bottom:45}, textStyle={color:axisColor,fontSize:12};
+    
+    if(this.charts.c1) this.charts.c1.dispose();
+    this.charts.c1=echarts.init($('marg-chart1'), dark?'dark':null);
+    const xs=r.data.map(d=>d[0]);
+    const bars=r.data.map((d,i)=>({value:+d[1].toFixed(3),itemStyle:{color:i===r.bestIdx?'#10B981':'#93C5FD'}}));
+    this.charts.c1.setOption({
+      backgroundColor:'transparent', title:{text:'各销量概率与累计概率',left:'center',top:6,textStyle:{fontSize:13,color:axisColor,fontWeight:600}},
+      tooltip:{trigger:'axis'}, legend:{top:28,textStyle:{color:axisColor,fontSize:11},itemWidth:12,itemHeight:8}, grid:{...baseGrid,top:60},
+      xAxis:{type:'category',data:xs,name:'销量',nameLocation:'middle',nameGap:30,axisLine:{lineStyle:{color:splitColor}},axisLabel:textStyle},
+      yAxis:{type:'value',name:'概率',max:1,axisLine:{show:false},axisLabel:textStyle,splitLine:{lineStyle:{color:splitColor,type:'dashed'}}},
+      series:[
+        {name:'各销量概率',type:'bar',data:bars,barWidth:'45%'},
+        {name:'累计概率',type:'line',data:r.cum.map(v=>+v.toFixed(3)),color:'#F59E0B',lineStyle:{width:2.5},symbol:'circle',symbolSize:7,
+         markLine:{symbol:'none',label:{formatter:`p₀=${fmt(r.p0,3)}`,color:'#EF4444',fontSize:11,fontWeight:600},lineStyle:{color:'#EF4444',type:'dashed',width:1.5},data:[{yAxis:+r.p0.toFixed(3)}]}}
+      ]
+    });
+
+    if(this.charts.c2) this.charts.c2.dispose();
+    this.charts.c2=echarts.init($('marg-chart2'), dark?'dark':null);
+    this.charts.c2.setOption({
+      backgroundColor:'transparent', title:{text:'各候选进货量的期望利润',left:'center',top:6,textStyle:{fontSize:13,color:axisColor,fontWeight:600}},
+      tooltip:{trigger:'axis'}, grid:{...baseGrid,top:45},
+      xAxis:{type:'category',data:r.candidates.map(c=>c.q),name:'进货量',nameLocation:'middle',nameGap:30,axisLine:{lineStyle:{color:splitColor}},axisLabel:textStyle},
+      yAxis:{type:'value',name:'期望利润（元）',axisLine:{show:false},axisLabel:textStyle,splitLine:{lineStyle:{color:splitColor,type:'dashed'}}},
+      series:[{type:'line',data:r.candidates.map(c=>+c.E.toFixed(2)),smooth:true,color:'#4F46E5',lineStyle:{width:2.5},symbol:'circle',symbolSize:8,areaStyle:{color:'rgba(79,70,229,.08)'},
+        markPoint:{symbol:'pin',symbolSize:40,label:{formatter:`最优\n${r.best.q}`,fontSize:11,color:'#fff'},itemStyle:{color:'#EF4444'},data:[{coord:[r.bestIdx,+r.best.E.toFixed(2)]}]}}]
+    });
+  },
+  buildInsight(r){
+    const f=fmt, bestQ=r.best?r.best.q:0, idx=r.candidates.findIndex(c=>c.q===bestQ);
+    const prevC=idx>0?r.candidates[idx-1]:null, nextC=idx<r.candidates.length-1?r.candidates[idx+1]:null;
+    const rowNarr=r.data.map((d,i)=>{const ok=r.cum[i]>=r.p0-1e-9;return `<li>销量 <b>${d[0]}</b>：售出概率 <b>${f(r.cum[i]*100,1)}%</b>，${ok?'高于':'低于'} p₀ (${f(r.p0*100,1)}%) → ${ok?'可进':'不进'}。</li>`}).join('');
+    let cmp=''; if(prevC)cmp+=`<li>保守进 ${prevC.q} 箱，期望利润 ${f(prevC.E)} 元 (少赚 ${f(r.best.E-prevC.E)} 元)。</li>`; if(nextC)cmp+=`<li>激进进 ${nextC.q} 箱，期望利润 ${f(nextC.E)} 元 (反而少赚 ${f(r.best.E-nextC.E)} 元)。</li>`;
+    let marg=''; if(prevC&&nextC){const pc=r.cum[r.data.findIndex(d=>d[0]===prevC.q)], nc=r.cum[r.data.findIndex(d=>d[0]===nextC.q)]; marg=`<li>从 ${prevC.q} 加到 ${bestQ}：卖出概率 ${f(pc*100,1)}% > p₀，边际利润为正 → 应加。</li><li>从 ${bestQ} 加到 ${nextC.q}：卖出概率 ${f(nc*100,1)}% < p₀，边际利润为负 → 不该加。</li>`;}
+    const mults=[0.8,0.9,1.0,1.1,1.2], sensRows=[];
+    for(const mml of mults){const cells=[];for(const mmp of mults){const p0v=(r.ML*mml)/(r.MP*mmp+r.ML*mml);cells.push(`<td class="${mml===1.0&&mmp===1.0?'cur':''}">${f(p0v,3)}</td>`)}sensRows.push(`<tr><td>${mml.toFixed(1)}×</td>${cells.join('')}</tr>`)}
+    return `
+${block('① 公式与原理', `<p>临界概率 <code>p₀ = ML/(MP+ML) = ${r.ML}/(${r.MP}+${r.ML}) ≈ ${f(r.p0,3)}</code>。某销量售出概率 > p₀，即可进货。</p>`)}
+${block('② 本次结果的解读', `<ul>${rowNarr}</ul><p>在最优进货量 <b>${bestQ} 箱</b>下，期望利润为 <b>${f(r.best.E)} 元</b>。</p><ul>${cmp}</ul><p><b>边际增量视角：</b></p><ul>${marg}</ul>`)}
+${block('③ 敏感性洞察', `<p>p₀ 随 MP/ML 变化：</p><table><thead><tr><th>ML\\MP</th><th>0.8×</th><th>0.9×</th><th>1.0×</th><th>1.1×</th><th>1.2×</th></tr></thead><tbody>${sensRows.join('')}</tbody></table>
+<p>ML 增加 20%，p₀ 升至 <b>${f((r.ML*1.2)/(r.MP+r.ML*1.2),3)}</b>，估计 ML 比 MP 更关键。</p>`)}
+${block('④ 行动建议', `<ol>
+  <li><b>建议进货 ${bestQ} 箱</b>，期望利润 <b>${f(r.best.E)} 元</b>。</li>
+  ${prevC?`<li>若厌恶风险，可退一档到 ${prevC.q} 箱，利润少 ${f(r.best.E-prevC.E)} 元，但最大滞销损失大幅下降。</li>`:''}
+  <li>ML 需包含资金占用、残值处理损失、清仓折价等全部沉没成本。</li>
+</ol>`)}`;
+  },
+  render(r){
+    this.lastResult=r;
+    const cards=[['转折概率 p₀',fmt(r.p0,3),''],['最优进货量',r.best?r.best.q:'—','箱'],['期望利润',r.best?fmt(r.best.E,0):'—','元']];
+    $('marg-results').innerHTML=cards.map(([l,v,u],i)=>`<div class="result-card" style="animation-delay:${i*0.05}s"><div class="lbl">${l}</div><div class="val">${v}<span class="unit">${u}</span></div></div>`).join('');
+    const rows=r.data.map((d,i)=>{const ok=r.cum[i]>=r.p0-1e-9;return `<tr class="${ok?'hl':''}"><td>${d[0]}</td><td>${fmt(d[1],2)}</td><td>${fmt(r.cum[i],3)}</td><td>${fmt(r.cum[i]*100,1)}%</td><td>${ok?'✓ 可进':'✗ 不进'}</td></tr>`}).join('');
+    $('marg-table-result').innerHTML=`<table class="dyn-table" style="font-size:13px"><thead><tr><th>销量</th><th>概率</th><th>累计 P</th><th>累计%</th><th>决策</th></tr></thead><tbody>${rows}</tbody></table>`;
+    $('marg-insight').innerHTML=this.buildInsight(r);
+    setTimeout(()=>this.renderCharts(r),30);
+  },
+  init(){
+    this.renderTable();
+    $('marg-add').onclick=()=>{$('marg-tbody').innerHTML+=`<tr><td><input type="number" class="m-sales" value="0"></td><td><input type="number" class="m-prob" value="0"></td><td><button class="del">×</button></td></tr>`;document.querySelectorAll('#marg-tbody .del').forEach(b=>b.onclick=()=>b.closest('tr').remove())};
+    $('marg-calc').onclick=()=>{const r=this.calculate();if(r)this.render(r)};
+    $('marg-reset').onclick=()=>{$('marg-MP').value=20;$('marg-ML').value=10;this.defaultData=[[100,0.2],[110,0.4],[120,0.3],[130,0.1]];this.renderTable();$('marg-calc').click()};
+    $('marg-calc').click();
+  }
+};
+
+/* ================= 单纯形法求解器 (Big-M) ================= */
+function solveLP(objCoefs, constraints, objType){
+  const n=objCoefs.length, m=constraints.length, isMax=objType==='max';
+  const c=isMax?objCoefs.slice():objCoefs.map(v=>-v);
+  const cons=constraints.map(con=>{let coefs=con.coefs.slice(),op=con.op,rhs=con.rhs;if(rhs<0){coefs=coefs.map(v=>-v);rhs=-rhs;op=op==='<='?'>=':op==='>='?'<=':'=';}return {coefs,op,rhs}});
+  let slackCnt=0,artCnt=0;
+  cons.forEach(con=>{if(con.op==='<=')slackCnt++;else if(con.op==='>='){slackCnt++;artCnt++;}else artCnt++;});
+  const totalVars=n+slackCnt+artCnt, M=1e7;
+  const slackIdx=[];for(let k=0;k<slackCnt;k++)slackIdx.push(n+k);
+  const artIdx=[];for(let k=0;k<artCnt;k++)artIdx.push(n+slackCnt+k);
+  const rowSlack=[],rowArt=[];let sCnt=0,aCnt=0;
+  cons.forEach(con=>{if(con.op==='<='){rowSlack.push(slackIdx[sCnt++]);rowArt.push(-1);}else if(con.op==='>='){rowSlack.push(slackIdx[sCnt++]);rowArt.push(artIdx[aCnt++]);}else{rowSlack.push(-1);rowArt.push(artIdx[aCnt++]);}});
+  const tableau=[], basicVars=[];
+  for(let i=0;i<m;i++){
+    const row=new Array(totalVars+1).fill(0), con=cons[i];
+    for(let j=0;j<n;j++)row[j]=con.coefs[j];
+    if(con.op==='<='){row[rowSlack[i]]=1;basicVars.push(rowSlack[i]);}
+    else if(con.op==='>='){row[rowSlack[i]]=-1;row[rowArt[i]]=1;basicVars.push(rowArt[i]);}
+    else{row[rowArt[i]]=1;basicVars.push(rowArt[i]);}
+    row[totalVars]=con.rhs; tableau.push(row);
+  }
+  const objRow=new Array(totalVars+1).fill(0);
+  for(let j=0;j<n;j++)objRow[j]=c[j];
+  artIdx.forEach(idx=>{objRow[idx]=-M});
+  for(let i=0;i<m;i++){const bv=basicVars[i];let cB=0;if(bv>=n+slackCnt)cB=-M;else if(bv>=n)cB=0;else cB=c[bv];if(Math.abs(cB)>1e-12)for(let j=0;j<=totalVars;j++)objRow[j]-=cB*tableau[i][j];}
+  
+  let iter=0,unbounded=false;
+  while(iter++<500){
+    let enterCol=-1,best=1e-9;
+    for(let j=0;j<totalVars;j++)if(objRow[j]>best){best=objRow[j];enterCol=j;}
+    if(enterCol===-1)break;
+    let leaveRow=-1,minRatio=Infinity;
+    for(let i=0;i<m;i++)if(tableau[i][enterCol]>1e-9){const r=tableau[i][totalVars]/tableau[i][enterCol];if(r<minRatio-1e-9){minRatio=r;leaveRow=i;}}
+    if(leaveRow===-1){unbounded=true;break;}
+    const pv=tableau[leaveRow][enterCol];
+    for(let j=0;j<=totalVars;j++)tableau[leaveRow][j]/=pv;
+    for(let i=0;i<m;i++){if(i!==leaveRow&&Math.abs(tableau[i][enterCol])>1e-12){const f=tableau[i][enterCol];for(let j=0;j<=totalVars;j++)tableau[i][j]-=f*tableau[leaveRow][j];}}
+    const objFactor=objRow[enterCol];
+    for(let j=0;j<=totalVars;j++)objRow[j]-=objFactor*tableau[leaveRow][j];
+    basicVars[leaveRow]=enterCol;
+  }
+  if(unbounded)return {status:'unbounded'};
+  const solution=new Array(n).fill(0);
+  for(let i=0;i<m;i++)if(basicVars[i]<n)solution[basicVars[i]]=tableau[i][totalVars];
+  for(let i=0;i<m;i++)if(basicVars[i]>=n+slackCnt&&tableau[i][totalVars]>1e-6)return {status:'infeasible'};
+  const Z=solution.reduce((sum,val,i)=>sum+val*objCoefs[i],0);
+  const slackVals=cons.map((con,i)=>{const used=con.coefs.reduce((sum,c,j)=>sum+c*solution[j],0);if(con.op==='<=')return con.rhs-used;if(con.op==='>=')return used-con.rhs;return 0;});
+  return {status:'optimal',solution,Z,slackVals};
+}
+
+/* ================= 线性规划模块 ================= */
+const LP = {
+  charts:{}, lastResult:null,
+  init(){
+    this.renderInputs();
+    $('lp-numvars').onchange=()=>this.renderInputs();
+    $('lp-add').onclick=()=>this.addConstraintRow();
+    $('lp-calc').onclick=()=>{const r=this.calculate();if(r)this.render(r)};
+    $('lp-reset').onclick=()=>{$('lp-numvars').value='3';$('lp-objtype').value='max';this.renderInputs();$('lp-calc').click()};
+    $('lp-calc').click();
+  },
+  renderInputs(){
+    const n=parseInt($('lp-numvars').value);
+    let objHtml=''; const defObj=[10,14,12];
+    for(let i=0;i<n;i++)objHtml+=`<input type="number" class="lp-obj-c" value="${defObj[i]||1}" step="any"> x${SUB[i]} ${i<n-1?'+':''} `;
+    $('lp-obj-row').innerHTML=objHtml;
+    $('lp-cons-container').innerHTML='';
+    let defCons=[{coefs:[1,0,0],op:'>=',rhs:200},{coefs:[0,1,0],op:'>=',rhs:250},{coefs:[0,0,1],op:'>=',rhs:100},{coefs:[1,1.5,4],op:'<=',rhs:2000},{coefs:[2,1.2,1],op:'<=',rhs:1000}];
+    if(n===2)defCons=[{coefs:[1,1],op:'<=',rhs:4},{coefs:[2,1],op:'<=',rhs:5},{coefs:[1,0],op:'>=',rhs:0},{coefs:[0,1],op:'>=',rhs:0}];
+    defCons.forEach(c=>{const coefs=c.coefs.slice(0,n);while(coefs.length<n)coefs.push(0);this.addConstraintRow(coefs,c.op,c.rhs)});
+  },
+  addConstraintRow(coefs=null,op='<=',rhs=0){
+    const n=parseInt($('lp-numvars').value), div=document.createElement('div'); div.className='lp-con-row';
+    let html=''; for(let i=0;i<n;i++){const val=coefs?coefs[i]:0;html+=`<input type="number" class="lp-con-c" value="${val}" step="any"> x${SUB[i]} ${i<n-1?'+':''} `;}
+    html+=`<select class="lp-con-op"><option value="<=" ${op==='<='?'selected':''}>≤</option><option value=">=" ${op==='>='?'selected':''}>≥</option><option value="=" ${op==='='?'selected':''}>=</option></select><input type="number" class="lp-con-rhs" value="${rhs}" step="any"><button class="del">×</button>`;
+    div.innerHTML=html; div.querySelector('.del').onclick=()=>div.remove(); $('lp-cons-container').appendChild(div);
+  },
+  calculate(){
+    const n=parseInt($('lp-numvars').value), objType=$('lp-objtype').value;
+    const objCoefs=[]; document.querySelectorAll('.lp-obj-c').forEach(i=>objCoefs.push(num(i.value)));
+    const constraints=[]; document.querySelectorAll('.lp-con-row').forEach(row=>{
+      const coefs=[]; row.querySelectorAll('.lp-con-c').forEach(i=>coefs.push(num(i.value)));
+      constraints.push({coefs,op:row.querySelector('.lp-con-op').value,rhs:num(row.querySelector('.lp-con-rhs').value)});
+    });
+    if(!constraints.length){toast('请至少添加一个约束');return null}
+    const res=solveLP(objCoefs,constraints,objType), shadowPrices=[];
+    if(res.status==='optimal'){
+      constraints.forEach((c,idx)=>{const modCons=JSON.parse(JSON.stringify(constraints));modCons[idx].rhs+=1;const resPlus=solveLP(objCoefs,modCons,objType);shadowPrices.push(resPlus.status==='optimal'?resPlus.Z-res.Z:0)});
+    }
+    return {objCoefs,constraints,objType,res,shadowPrices,n};
+  },
+  renderCharts(r){
+    const dark=isDark(), axisColor=dark?'#9CA3AF':'#6B7280', splitColor=dark?'#374151':'#E5E7EB';
+    const baseGrid={left:55,right:30,top:50,bottom:45}, textStyle={color:axisColor,fontSize:12};
+    
+    if(this.charts.c1) this.charts.c1.dispose();
+    this.charts.c1=echarts.init($('lp-chart1'), dark?'dark':null);
+    if(r.n===2 && r.res.status==='optimal'){
+      const xMax=Math.max(...r.constraints.map(c=>c.rhs/(c.coefs[0]||1)))*1.2||10;
+      const yMax=Math.max(...r.constraints.map(c=>c.rhs/(c.coefs[1]||1)))*1.2||10;
+      const points=[]; for(let x=0;x<=xMax;x+=xMax/40)for(let y=0;y<=yMax;y+=yMax/40){let valid=true;for(const c of r.constraints){const val=c.coefs[0]*x+c.coefs[1]*y;if(c.op==='<='&&val>c.rhs+1e-6){valid=false;break}if(c.op==='>='&&val<c.rhs-1e-6){valid=false;break}if(c.op==='='&&Math.abs(val-c.rhs)>1e-6){valid=false;break}}if(valid)points.push([x,y])}
+      this.charts.c1.setOption({
+        backgroundColor:'transparent', title:{text:'二维可行域与最优解',left:'center',top:6,textStyle:{fontSize:13,color:axisColor,fontWeight:600}}, grid:{...baseGrid,top:45},
+        xAxis:{type:'value',name:'x₁',min:0,max:xMax,axisLine:{lineStyle:{color:splitColor}},axisLabel:textStyle,splitLine:{lineStyle:{color:splitColor,type:'dashed'}}},
+        yAxis:{type:'value',name:'x₂',min:0,max:yMax,axisLine:{show:false},axisLabel:textStyle,splitLine:{lineStyle:{color:splitColor,type:'dashed'}}},
+        series:[{type:'scatter',data:points,symbolSize:3,itemStyle:{color:'rgba(79,70,229,0.15)'},name:'可行域'},{type:'scatter',data:[[r.res.solution[0],r.res.solution[1]]],symbolSize:12,itemStyle:{color:'#EF4444'},name:'最优解'}]
+      });
+    }else{
+      const names=r.constraints.map((c,i)=>`约束${i+1}`);
+      const usage=r.constraints.map((c,i)=>{const used=c.coefs.reduce((sum,coef,j)=>sum+coef*(r.res.solution?r.res.solution[j]:0),0);return c.rhs!==0?+(used/c.rhs*100).toFixed(1):0});
+      this.charts.c1.setOption({
+        backgroundColor:'transparent', title:{text:'资源使用率',left:'center',top:6,textStyle:{fontSize:13,color:axisColor,fontWeight:600}}, grid:{...baseGrid,top:45,left:70},
+        xAxis:{type:'value',max:100,name:'%',axisLine:{lineStyle:{color:splitColor}},axisLabel:textStyle},
+        yAxis:{type:'category',data:names,axisLine:{show:false},axisLabel:textStyle},
+        series:[{type:'bar',data:usage,itemStyle:{color:'#4F46E5'},label:{show:true,position:'right',formatter:'{c}%'}}]
+      });
+    }
+
+    if(this.charts.c2) this.charts.c2.dispose();
+    this.charts.c2=echarts.init($('lp-chart2'), dark?'dark':null);
+    const names=r.constraints.map((c,i)=>`约束${i+1}`);
+    const slackVals=r.res.slackVals||[];
+    this.charts.c2.setOption({
+      backgroundColor:'transparent', title:{text:'约束松弛量 (0为瓶颈)',left:'center',top:6,textStyle:{fontSize:13,color:axisColor,fontWeight:600}}, grid:{...baseGrid,top:45,left:70},
+      xAxis:{type:'value',axisLine:{lineStyle:{color:splitColor}},axisLabel:textStyle},
+      yAxis:{type:'category',data:names,axisLine:{show:false},axisLabel:textStyle},
+      series:[{type:'bar',data:slackVals.map(v=>({value:+v.toFixed(2),itemStyle:{color:Math.abs(v)<1e-5?'#EF4444':'#10B981'}})),label:{show:true,position:'right'}}]
+    });
+
+    if(this.charts.c3) this.charts.c3.dispose();
+    this.charts.c3=echarts.init($('lp-chart3'), dark?'dark':null);
+    this.charts.c3.setOption({
+      backgroundColor:'transparent', title:{text:'影子价格 (RHS+1 的利润增量)',left:'center',top:6,textStyle:{fontSize:13,color:axisColor,fontWeight:600}}, grid:{...baseGrid,top:45,left:70},
+      xAxis:{type:'value',axisLine:{lineStyle:{color:splitColor}},axisLabel:textStyle},
+      yAxis:{type:'category',data:names,axisLine:{show:false},axisLabel:textStyle},
+      series:[{type:'bar',data:r.shadowPrices.map(v=>+v.toFixed(2)),itemStyle:{color:'#F59E0B'},label:{show:true,position:'right'}}]
+    });
+  },
+  buildInsight(r){
+    const f=fmt;
+    if(r.res.status!=='optimal') return block('求解状态',`<p>当前模型状态：<b>${r.res.status==='infeasible'?'无可行解':'无界解'}</b>。请检查约束设置。</p>`);
+    const opt=r.res.solution.map((v,i)=>`x${SUB[i]}=<b>${f(v)}</b>`).join(', ');
+    const tight=[],loose=[];
+    r.constraints.forEach((c,i)=>{const slack=Math.abs(r.res.slackVals[i]);const name=`约束${i+1}`;if(slack<1e-5)tight.push(name);else loose.push(`${name}(松弛${f(slack)})`)});
+    let spHtml=''; r.shadowPrices.forEach((sp,i)=>{if(sp>1e-5)spHtml+=`<li>约束${i+1} 影子价格 <b>${f(sp)}</b>：每增加 1 单位，利润增加 ${f(sp)}。</li>`});
+    const isInt=r.res.solution.every(v=>Math.abs(v-Math.round(v))<1e-6);
+    return `
+${block('① 公式与原理', `<p>线性规划在约束下求最优。松弛量=0 的约束是<b>紧约束（瓶颈）</b>；松弛>0 说明资源有剩余，继续增加带不来收益。</p>`)}
+${block('② 本次结果的解读', `<ul><li>最优解 ${opt}，目标函数 <b>Z* = ${f(r.res.Z)}</b>。</li><li>紧约束：<b>${tight.join('、')||'无'}</b>；松约束：<b>${loose.join('、')||'无'}</b>。</li></ul>`)}
+${block('③ 敏感性洞察', `<p>影子价格表示资源右端 +1 时目标的变化量：</p><ul>${spHtml||'<li>所有约束影子价格均接近 0。</li>'}</ul><p>注意：影子价格仅在 RHS 小幅变动时有效。</p>`)}
+${block('④ 行动建议', `<ol>
+  <li>按最优解 (${r.res.solution.map(v=>f(v)).join(', ')}) 组织生产，可获最大利润 <b>${f(r.res.Z)}</b>。</li>
+  ${tight.length>0&&r.shadowPrices.some(v=>v>1e-5)?`<li>瓶颈是 ${tight.join('、')}，扩充该资源每单位可增利 <b>${f(Math.max(...r.shadowPrices))}</b>，可核算扩充成本。</li>`:''}
+  <li>${isInt?'本解为整数解，可直接执行。':'本解含小数，若需整数解，应改用整数规划。'}</li>
+</ol>`)}`;
+  },
+  render(r){
+    this.lastResult=r;
+    const cards=[['状态',r.res.status==='optimal'?'最优解':(r.res.status==='infeasible'?'不可行':'无界'),''],['目标 Z*',r.res.status==='optimal'?fmt(r.res.Z):'—','']];
+    r.res.solution.forEach((v,i)=>cards.push([`x${SUB[i]}`,fmt(v),'']));
+    $('lp-results').innerHTML=cards.map(([l,v,u],i)=>`<div class="result-card" style="animation-delay:${i*0.05}s"><div class="lbl">${l}</div><div class="val">${v}<span class="unit">${u}</span></div></div>`).join('');
+    $('lp-insight').innerHTML=this.buildInsight(r);
+    setTimeout(()=>this.renderCharts(r),30);
+  }
+};
+
+// 页面加载完成后初始化
+window.addEventListener('DOMContentLoaded', () => {
+  EOQ.init();
+  Marginal.init();
+  LP.init();
+});
+</script>
+</body>
+</html>
